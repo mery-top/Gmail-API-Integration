@@ -58,29 +58,26 @@ def cyberai():
 @app.route('/predict', methods=['POST'])
 def predict_route():
     try:
-        # Debugging: Print the incoming JSON data
         print("Request JSON:", request.get_json())
 
-        # Get the JSON data from the request
+
         data = request.get_json()
 
-        # Check if data is None
+
         if data is None:
             raise ValueError("No JSON data provided")
 
-        # Try to get 'message' from the data
         message = data.get('message')
         
         if not message:
             raise ValueError("Message is required")
-        
-        # Proceed with the prediction logic
+
         prediction = predict(message)
         
         return jsonify({'prediction': prediction})
     
     except Exception as e:
-        # Return detailed error message
+
         return jsonify({'error': str(e)}), 400
 
 
@@ -152,9 +149,8 @@ def pubsub_push():
         email_address = notification_data.get('emailAddress')
         history_id = notification_data.get('historyId')
         if history_id:
-            print(f"Processing historyId: {history_id}")
-            # Call Gmail API to get the email content using historyId
-            service = authenticate_gmail()  # Ensure authentication
+            print(f"Processing historyId: {history_id}")        
+            service = authenticate_gmail()  
             get_email_content_from_history(service, history_id)
         else:
             print("No valid historyId found in message.")
@@ -163,7 +159,6 @@ def pubsub_push():
 
     except json.JSONDecodeError:
         print("Decoded data is not valid JSON. Skipping JSON processing.")
-        # Handle non-JSON data here, if necessary
         pass
 
     return "Message processed", 200

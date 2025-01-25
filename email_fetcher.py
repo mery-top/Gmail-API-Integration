@@ -54,7 +54,6 @@ def get_email_content_from_history(service, history_id):
         # Retrieve history data
         results = service.users().history().list(userId='me', startHistoryId=history_id).execute()
 
-        # Extract the message ID from the history
         history = results.get('history', [])
         if history:
             for event in history:
