@@ -7,7 +7,7 @@ import base64
 import json
 import pickle
 from flask_socketio import SocketIO
-from email_fetcher import authenticate_gmail, setup_watch, get_email_content_from_history
+from email_fetcher import authenticate_gmail, setup_watch, get_email_content_from_history, get_email_content
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -21,7 +21,16 @@ model.to(device)
 
 service = authenticate_gmail()
 setup_watch(service)
+# messages = service.users().messages().list(userId='me', labelIds=['INBOX'], q="is:unread").execute()
+# print("Unread Messages:", json.dumps(messages, indent=2))
 
+# if 'messages' in messages:
+#     for msg in messages['messages']:
+#         print(f"Message ID: {msg['id']}")
+#         email_content = get_email_content(service, msg['id'])
+#         print(f"Email Content: {email_content}")
+# else:
+#     print("No unread messages found.")
 
 model2 = tf.keras.models.load_model('phishing_url_model.h5')
 with open('vectorizer.pkl', 'rb') as f:
@@ -58,26 +67,29 @@ def cyberai():
 @app.route('/predict', methods=['POST'])
 def predict_route():
     try:
+        # Debugging: Print the incoming JSON data
         print("Request JSON:", request.get_json())
 
-
+        # Get the JSON data from the request
         data = request.get_json()
 
-
+        # Check if data is None
         if data is None:
             raise ValueError("No JSON data provided")
 
+        # Try to get 'message' from the data
         message = data.get('message')
         
         if not message:
             raise ValueError("Message is required")
-
+        
+        # Proceed with the prediction logic
         prediction = predict(message)
         
         return jsonify({'prediction': prediction})
     
     except Exception as e:
-
+        # Return detailed error message
         return jsonify({'error': str(e)}), 400
 
 
@@ -126,18 +138,17 @@ def detect_phishing():
 def pubsub_push():
     """Endpoint to receive Pub/Sub messages."""
     envelope = request.get_json()
-    print("Envelope received:", envelope)
+
 
     if not envelope or 'message' not in envelope:
         return "Invalid Pub/Sub message format", 400
 
     message = envelope['message']
-    print("Message received:", message)
+
 
     # Decode the base64-encoded data
     try:
         decoded_data = base64.b64decode(message['data']).decode('utf-8')
-        print("Decoded message data:", decoded_data)
     except Exception as e:
         print(f"Error decoding base64 data: {e}")
         return "Error decoding message data", 500
@@ -146,12 +157,21 @@ def pubsub_push():
     try:
         notification_data = json.loads(decoded_data)
         print("Parsed JSON data:", notification_data)
+        # Call your processing function here
+        # Extract email address and history ID
         email_address = notification_data.get('emailAddress')
         history_id = notification_data.get('historyId')
+        
         if history_id:
-            print(f"Processing historyId: {history_id}")        
-            service = authenticate_gmail()  
-            get_email_content_from_history(service, history_id)
+            print(f"Processing historyId: {history_id}")
+            # Call Gmail API to get the email content using historyId
+            service = authenticate_gmail()  # Ensure authentication
+            phish_content, from_address = get_email_content_from_history(service, history_id)
+            print(phish_content)
+            print(from_address)
+
+
+            
         else:
             print("No valid historyId found in message.")
 
@@ -159,6 +179,7 @@ def pubsub_push():
 
     except json.JSONDecodeError:
         print("Decoded data is not valid JSON. Skipping JSON processing.")
+        # Handle non-JSON data here, if necessary
         pass
 
     return "Message processed", 200
